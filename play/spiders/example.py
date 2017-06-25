@@ -17,8 +17,14 @@ class ExampleSpider(scrapy.Spider):
 
     # Parser for components results
     def parse(self, response):
-        productDetails = {}
+        productDetails = {
+            'url': None,
+            'brand': None,
+            'title': None
+        }
         productDetails['url'] = response.css('div#breadcrumb > ul > li > a.omTagEvt::attr(href)')[-1].extract()
+        productDetails['brand'] = response.css('span.schemaOrg::text').extract_first()
+        productDetails['title'] = '-'.join((productDetails['brand'], response.css('div#breadcrumb > ul > li > a.omTagEvt::text')[-1].extract()))
         print productDetails
 
     def start_requests0(self):
