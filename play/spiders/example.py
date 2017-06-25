@@ -36,7 +36,6 @@ class ExampleSpider(scrapy.Spider):
     def parse2(self, response):
         products = response.css('table#sProdList > tbody > tr > td.mftrPart > a::attr(href)').extract()
         for url in products:
-            print url
             if "http:" in url:
                 yield scrapy.Request(url, headers=self.headers, callback=self.parseProductPage)
 
@@ -58,13 +57,19 @@ class ExampleSpider(scrapy.Spider):
             'tariff_number': None,
             'origin_country': None,
             'file_urls': None,
-            'files': None
+            'files': None,
+            'primary_image_url': None,
+            'image_urls': None,
+            'trail': None
         }
         productDetails['url'] = response.css('div#breadcrumb > ul > li > a.omTagEvt::attr(href)')[-1].extract()
         productDetails['brand'] = response.css('span.schemaOrg::text').extract_first()
         productDetails['title'] = '-'.join((productDetails['brand'], response.css('div#breadcrumb > ul > li > a.omTagEvt::text')[-1].extract()))
-        unit_price = response.css('span.price::text').extract_first().strip().replace('','')[1:] # removing currency character
-        productDetails['unit_price'] = float(unit_price)
+        unit_price = response.css('span.price::text').extract_first()
+        if unit_price != None:
+            unit_price = unit_price.replace(',', '')
+            unit_price = float(unit_price.strip()[1:]) # removing currency character
+        productDetails['unit_price'] = unit_price
         productDetails['content'] = response.css('div.contents::text').extract_first()
         information_name_dict = response.css('section.pdpProductContent > div.collapsable-content > dl > dt > label::text').extract()
         information_value_dict = response.css('section.pdpProductContent > div.collapsable-content > dl > dd > a::text').extract()
@@ -73,13 +78,20 @@ class ExampleSpider(scrapy.Spider):
         for key in information_name_dict:
             dict_info.append({
                 'name': key,
-                'value': information_value_dict[cpt_info]
+                'value': information_value_dict[cpt_info] if information_value_dict[cpt_info:] else None
             })
             cpt_info = cpt_info+1
         productDetails['information'] = dict_info
         productDetails['manufacturer'] = productDetails['brand']
-        productDetails['manufacturer_part'] = str(response.xpath('//dd[@itemprop="mpn"]//text()').extract_first().split()[0])
-        productDetails['tariff_number'] = response.xpath('//*[@id="pdpSection_ProductLegislation"]/div[2]/dl/dd[3]/text()').extract_first().split()[0]
+        manufacturer_part = response.xpath('//dd[@itemprop="mpn"]//text()').extract_first()
+        if manufacturer_part != None:
+            manufacturer_part = str(manufacturer_part.split()[0])
+        productDetails['manufacturer_part'] = manufacturer_part
+        tariff_number = response.xpath('//*[@id="pdpSection_ProductLegislation"]/div[2]/dl/dd[3]/text()').extract_first()
+        if tariff_number != None:
+            tariff_number = tariff_number.split()[0]
+        productDetails['tariff_number'] = tariff_number
+
         productDetails['origin_country'] = response.xpath('//*[@id="pdpSection_ProductLegislation"]/div[2]/dl/dd[1]/text()').extract_first().split()[0]
         productDetails['file_urls'] = response.xpath('//*[@id="technicalData"]/li/a/@href').extract()
         files = []
